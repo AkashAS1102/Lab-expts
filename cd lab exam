@@ -1,0 +1,331 @@
+
+# ==========================================
+# EXPERIMENT 1: 8086 ASSEMBLY CODE GENERATION
+# ==========================================
+
+n = int(input())
+previous = ""
+print("8086-style output:")
+
+for i in range(n):
+    left, right = input().replace(" ", "").split("=")
+    op = next((c for c in "+-*/" if c in right), None)
+
+    if op:
+        a, b = right.split(op)
+        if a != previous:
+            print("MOV AX,", a)
+        if op in "+-":
+            print("ADD AX," if op == "+" else "SUB AX,", b)
+        else:
+            print("MOV BX,", b)
+            print("MUL BX" if op == "*" else "DIV BX")
+        previous = left
+    else:
+        if right != previous:
+            print("MOV AX,", right)
+        print("MOV " + left + ", AX")
+        previous = left
+
+
+# ==========================================
+# EXPERIMENT 2: DESK CALCULATOR
+# ==========================================
+
+import ast
+import operator as op
+
+operations = {
+    ast.Add: op.add, ast.Sub: op.sub,
+    ast.Mult: op.mul, ast.Div: op.truediv,
+    ast.USub: op.neg, ast.UAdd: op.pos
+}
+
+def calc(node):
+    if isinstance(node, ast.Constant) and type(node.value) in (int, float):
+        return node.value
+    if isinstance(node, ast.BinOp) and type(node.op) in operations:
+        return operations[type(node.op)](calc(node.left), calc(node.right))
+    if isinstance(node, ast.UnaryOp) and type(node.op) in operations:
+        return operations[type(node.op)](calc(node.operand))
+    raise ValueError
+
+while True:
+    s = input()
+    if s.lower() == "exit":
+        break
+    try:
+        result = calc(ast.parse(s, mode="eval").body)
+        print("Result =", float(result))
+    except ZeroDivisionError:
+        print("Error: division by zero")
+    except (ValueError, SyntaxError, OverflowError):
+        print("Error: malformed expression")
+
+
+# ==========================================
+# EXPERIMENT 3: THREE-ADDRESS CODE GENERATION
+# ==========================================
+
+import ast
+
+symbols = {
+    ast.Add: "+", ast.Sub: "-",
+    ast.Mult: "*", ast.Div: "/"
+}
+t = 0
+
+def make(node):
+    global t
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Constant) and type(node.value) in (int, float):
+        return str(node.value)
+    if isinstance(node, ast.BinOp) and type(node.op) in symbols:
+        a, b = make(node.left), make(node.right)
+        t += 1
+        print(f"t{t} = {a} {symbols[type(node.op)]} {b}")
+        return f"t{t}"
+    raise ValueError("Unsupported expression")
+
+try:
+    s = input().strip().rstrip(";")
+    target, expr = s.split("=", 1)
+    result = make(ast.parse(expr.strip(), mode="eval").body)
+    print(target.strip(), "=", result)
+except (ValueError, SyntaxError):
+    print("Invalid assignment")
+
+
+# ==========================================
+# EXPERIMENT 4: TYPE CHECKING AND SYMBOL TABLE
+# ==========================================
+
+import re
+
+types = {}
+
+for line_no in range(1, 1000):
+    line = input().strip()
+    if line == "END":
+        break
+
+    line = line.rstrip(";")
+    m = re.fullmatch(r"(int|float|char)\s+([A-Za-z_]\w*)", line)
+
+    if m:
+        kind, name = m.groups()
+        if name in types:
+            print(f"Line {line_no}: error: redeclaration of {name}")
+        else:
+            types[name] = kind
+
+    elif "=" in line:
+        name, expr = [x.strip() for x in line.split("=", 1)]
+
+        if name not in types:
+            print(f"Line {line_no}: error: variable {name} is not declared")
+            continue
+
+        words = re.findall(r"[A-Za-z_]\w*", expr)
+        unknown = next((w for w in words if w not in types), None)
+
+        if unknown:
+            print(f"Line {line_no}: error: variable {unknown} is not declared")
+        elif types[name] == "int" and (
+            any(types[w] == "float" for w in words)
+            or re.search(r"\d+\.\d+", expr)
+        ):
+            print(f"Line {line_no}: warning: float assigned to int (possible loss of data)")
+
+print("Symbol table:", types)
+
+
+# ==========================================
+# EXPERIMENT 5: CODE OPTIMIZATION
+# ==========================================
+
+n = int(input())
+code = [input().strip() for i in range(n)]
+
+print("Before optimization:")
+print(*code, sep="\n")
+
+print("\nAfter optimization:")
+for line in code:
+    left, right = (s.strip() for s in line.split("=", 1))
+
+    if "*" in right:
+        a, b = (s.strip() for s in right.split("*", 1))
+        if a.isdigit() and b.isdigit():
+            right = str(int(a) * int(b))
+        elif b == "2":
+            right = a + " + " + a
+        elif b == "1":
+            right = a
+
+    elif right.endswith("+ 0"):
+        right = right[:-3].strip()
+    elif right.endswith("- 0"):
+        right = right[:-3].strip()
+
+    print(left, "=", right)
+
+
+# ==========================================
+# EXPERIMENT 6: LEXICAL ANALYZER WITH SYMBOL TABLE
+# ==========================================
+
+import re
+
+keywords = {"int", "float", "char", "return"}
+symbols = {}
+pattern = r"\d+\.\d+|\d+|[A-Za-z_]\w*|==|<=|>=|[=+*/<>-]|[;(),{}]"
+line_no = 0
+
+while True:
+    line = input()
+    if line == "END":
+        break
+
+    line_no += 1
+    line = line.split("//", 1)[0]
+
+    for word in re.findall(pattern, line):
+        if word in keywords:
+            kind = "KEYWORD"
+        elif word.isdigit():
+            kind = "INTEGER CONSTANT"
+        elif re.fullmatch(r"\d+\.\d+", word):
+            kind = "FLOAT CONSTANT"
+        elif word in "=+*/<>-":
+            kind = "OPERATOR"
+        elif word in ";(),{}":
+            kind = "SPECIAL SYMBOL"
+        else:
+            kind = "IDENTIFIER"
+            if word not in symbols:
+                symbols[word] = line_no
+
+        print(f"Line {line_no}: {word} : {kind}")
+
+print("\nSymbol Table:")
+for i, (name, line) in enumerate(symbols.items(), 1):
+    print(f"{i}. {name} (line {line})")
+
+
+# ==========================================
+# EXPERIMENT 7: C-FILE LEXICAL ANALYZER
+# ==========================================
+
+import re
+
+name = input()
+counts = [0, 0, 0, 0, 0]
+keywords = {"int", "float", "char", "return", "void"}
+operators = {"=", "+", "-", "*", "/", "<", ">", "=="}
+pattern = r"\d+[A-Za-z_]\w*|[A-Za-z_]\w*|\d+|==|[=+*/<>-]|[;(),{}]"
+
+with open(name) as file:
+    for line_no, line in enumerate(file, 1):
+        line = line.split("//", 1)[0]
+
+        for word in re.findall(pattern, line):
+            if re.fullmatch(r"\d+[A-Za-z_]\w*", word):
+                print(f"Line {line_no}: invalid token {word}")
+            elif word in keywords:
+                counts[0] += 1
+            elif word in operators:
+                counts[3] += 1
+            elif word.isdigit():
+                counts[2] += 1
+            elif word in ";(),{}":
+                counts[4] += 1
+            else:
+                counts[1] += 1
+
+labels = ["Keywords", "Identifiers", "Constants", "Operators", "Special symbols"]
+print(" | ".join(f"{label}: {count}" for label, count in zip(labels, counts)))
+
+
+# ==========================================
+# EXPERIMENT 8: ARITHMETIC EXPRESSION VALIDATION
+# ==========================================
+
+import ast
+
+def valid(node):
+    if isinstance(node, ast.Name):
+        return True
+    if isinstance(node, ast.Constant):
+        return type(node.value) in (int, float)
+    if isinstance(node, ast.BinOp):
+        return (
+            type(node.op) in (ast.Add, ast.Sub, ast.Mult, ast.Div)
+            and valid(node.left)
+            and valid(node.right)
+        )
+    return False
+
+while True:
+    text = input()
+    if text == "END":
+        break
+
+    try:
+        ok = valid(ast.parse(text, mode="eval").body)
+    except SyntaxError:
+        ok = False
+
+    print("Valid expression" if ok else "Invalid expression")
+
+
+# ==========================================
+# EXPERIMENT 9: VARIABLE NAME VALIDATION
+# ==========================================
+
+import re
+
+name = input()
+
+if re.fullmatch(r"[A-Za-z][A-Za-z0-9]*", name):
+    print("Valid variable")
+else:
+    print("Invalid variable")
+
+
+# ==========================================
+# EXPERIMENT 10: CONTROL STRUCTURE SYNTAX CHECKER
+# ==========================================
+
+import re
+
+lines = []
+while True:
+    line = input()
+    if line == "END":
+        break
+    lines.append(line)
+
+text = "\n".join(lines)
+stack = []
+matching = {")": "(", "}": "{", "]": "["}
+ok = True
+
+for ch in text:
+    if ch in "({[":
+        stack.append(ch)
+    elif ch in ")}]":
+        if not stack or stack.pop() != matching[ch]:
+            ok = False
+            break
+
+if stack or re.search(r"\belse\s*$", text):
+    ok = False
+
+for word in ("for", "while", "if", "switch"):
+    for match in re.finditer(r"\b" + word + r"\b", text):
+        if not re.match(r"\s*\(", text[match.end():]):
+            ok = False
+
+print("Valid syntax" if ok else "Syntax error")
