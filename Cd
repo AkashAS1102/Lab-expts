@@ -1,0 +1,158 @@
+Exp1
+import re
+s = set()
+code = input("Enter a statement: ")
+tokens = re.findall(r'//.*|[a-zA-Z_]\w*|\d+|[+\-*/=]', code)
+for t in tokens:
+   if t.startswith("//"):
+       print(t, "- Comment")
+   elif t in ["int", "float", "char", "if", "else"]:
+       print(t, "- Keyword")
+   elif t.isdigit():
+       print(t, "- Constant")
+   elif t in "+-*/=":
+       print(t, "- Operator")
+   else:
+       print(t, "- Identifier")
+       s.add(t)
+print("\nSymbol Table:")
+for x in sorted(s):
+   print(x)
+exp 2
+import re
+code = input("Enter a statement: ")
+tokens = re.findall(r'[a-zA-Z]+|\d+|[+\-*/=]', code)
+for t in tokens:
+   if t in ["int", "float", "char", "if", "else"]:
+       print(t, "- Keyword")
+   elif t.isdigit():
+       print(t, "- Constant")
+   elif t in "+-*/=":
+       print(t, "- Operator")
+   else:
+       print(t, "- Identifier")
+exp 3
+import re
+exp = input("Enter an expression: ")
+if re.fullmatch(r'\d+([+\-*/]\d+)+', exp):
+   print("Valid Expression")
+else:
+   print("Invalid Expression")
+exp 4
+import re
+v = input("Enter a variable: ")
+if re.fullmatch(r'[a-zA-Z][a-zA-Z0-9]*', v):
+   print("Valid Variable")
+else:
+   print("Invalid Variable")
+ 
+exp 5
+import re
+s = input("Enter a control structure: ")
+if re.fullmatch(r'for\s*\(.*;.*;.*\)\s*', s):
+   print("Valid For Loop")
+elif re.fullmatch(r'while\s*\(.+\)', s):
+   print("Valid While Loop")
+elif re.fullmatch(r'if\s*\(.+\)\s*', s):
+   print("Valid If Statement")
+elif re.fullmatch(r'if\s*\(.+\)\s*else\s*', s):
+   print("Valid If-Else Statement")
+elif re.fullmatch(r'if\s*\(.+\)\s*else\s+if\s*\(.+\)', s):
+   print("Valid If-Else-If Statement")
+elif re.fullmatch(r'switch\s*\(.+\)', s):
+   print("Valid Switch Statement")
+else:
+   print("Invalid Control Structure")
+exp 6
+a = float(input("Enter first number: "))
+op = input("Enter operator (+, -, *, /): ")
+b = float(input("Enter second number: "))
+if op == '+':
+   print("Result =", a + b)
+elif op == '-':
+   print("Result =", a - b)
+elif op == '*':
+   print("Result =", a * b)
+elif op == '/':
+   if b != 0:
+       print("Result =", a / b)
+   else:
+       print("Cannot divide by zero")
+else:
+   print("Invalid Operator")
+exp 7
+exp = input("Enter an expression (e.g., a+b*c): ")
+parts = exp.split("*")
+if len(parts) == 2:
+   t1 = "t1 = " + parts[1]
+   t2 = "t2 = " + parts[0] + " * " + parts[1]
+   print("Three Address Code:")
+   print(t2)
+else:
+   parts = exp.split("+")
+   if len(parts) == 2:
+       print("Three Address Code:")
+       print("t1 = " + parts[0] + " + " + parts[1])
+   else:
+       print("Invalid Expression")
+exp 8
+a = input("Enter first type (int/float): ")
+b = input("Enter second type (int/float): ")
+if a == b:
+   print("Type Checking Successful")
+elif a in ["int", "float"] and b in ["int", "float"]:
+   print("Type Conversion Required")
+else:
+   print("Type Error")
+exp 9
+print("1. Constant Folding")
+print("2. Strength Reduction")
+print("3. Algebraic Transformation")
+ch = int(input("Enter choice: "))
+exp = input("Enter expression: ")
+if ch == 1:
+   print("Optimized:", eval(exp))
+elif ch == 2:
+   exp = exp.replace("* 2", "+ x")
+   print("Optimized:", exp)
+elif ch == 3:
+   if exp.endswith("+ 0"):
+       exp = exp.replace("+ 0", "")
+   elif exp.endswith("* 1"):
+       exp = exp.replace("* 1", "")
+   print("Optimized:", exp)
+else:
+   print("Invalid Choice")
+exp 10
+n = int(input("Enter number of statements: "))
+print("Enter three address code:")
+for i in range(n):
+   s = input()
+   p = s.replace(" ", "").split("=")
+   left = p[0]
+   right = p[1]
+   if "+" in right:
+       a, b = right.split("+")
+       print("MOV AX, " + a)
+       print("ADD AX, " + b)
+       print("MOV " + left + ", AX")
+   elif "-" in right:
+       a, b = right.split("-")
+       print("MOV AX, " + a)
+       print("SUB AX, " + b)
+       print("MOV " + left + ", AX")
+   elif "*" in right:
+       a, b = right.split("*")
+       print("MOV AX, " + a)
+       print("MOV BX, " + b)
+       print("MUL BX")
+       print("MOV " + left + ", AX")
+   elif "/" in right:
+       a, b = right.split("/")
+       print("MOV AX, " + a)
+       print("MOV BX, " + b)
+       print("DIV BX")
+       print("MOV " + left + ", AX")
+   else:
+       print("MOV AX, " + right)
+       print("MOV " + left + ", AX")
