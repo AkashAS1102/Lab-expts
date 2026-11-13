@@ -1,0 +1,252 @@
+import java.net.*;
+import java.util.*;
+
+/*
+ * CS3591 Computer Networks Lab - all programs in ONE file.
+ *
+ * Compile : javac CNLab.java
+ * Run     : java CNLab <code>      (start the server first, then the client)
+ *
+ *  Code | Program
+ *  -----+--------------------------------------------------------
+ *  1s   | Ex1 UDP Echo Server
+ *  1c   | Ex1 UDP Echo Client (verifies reply, then disconnect/close)
+ *  2s   | Ex2 Datagram Server (messages typed here show on client)
+ *  2c   | Ex2 Datagram Client
+ *  3s   | Ex3 UDP Chat Server
+ *  3c   | Ex3 UDP Chat Client
+ *  4s   | Ex4 Hello Server (run on computer A)
+ *  4c   | Ex4 Hello Client (run on computer B, enter server IP)
+ *  5    | Ex5 Framing: character count, character stuffing, bit stuffing
+ *  6s   | Ex6 TCP Iterative Server (reverses string)
+ *  6c   | Ex6 TCP Client
+ *
+ * For two computers, replace "localhost" with the server's IP address.
+ */
+public class CNLab {
+
+    static final String HOST = "localhost";
+
+    public static void main(String[] args) throws Exception {
+        if (args.length == 0) {
+            System.out.println("Usage: java CNLab <1s|1c|2s|2c|3s|3c|4s|4c|5|6s|6c>");
+            return;
+        }
+        switch (args[0]) {
+            case "1s": echoServer();   break;
+            case "1c": echoClient();   break;
+            case "2s": dgramServer();  break;
+            case "2c": dgramClient();  break;
+            case "3s": chatServer();   break;
+            case "3c": chatClient();   break;
+            case "4s": helloServer();  break;
+            case "4c": helloClient();  break;
+            case "5":  framing();      break;
+            case "6s": tcpServer();    break;
+            case "6c": tcpClient();    break;
+            default:   System.out.println("Invalid code");
+        }
+    }
+
+    // ---------------- Exercise 1: UDP Echo ----------------
+    static void echoServer() throws Exception {
+        DatagramSocket ds = new DatagramSocket(5000);
+        System.out.println("Echo server ready on port 5000");
+        byte[] b = new byte[1024];
+        while (true) {
+            DatagramPacket p = new DatagramPacket(b, b.length);
+            ds.receive(p);
+            ds.send(new DatagramPacket(p.getData(), p.getLength(),
+                                       p.getAddress(), p.getPort()));
+        }
+    }
+
+    static void echoClient() throws Exception {
+        DatagramSocket ds = new DatagramSocket();
+        InetAddress ip = InetAddress.getByName(HOST);
+        Scanner sc = new Scanner(System.in);
+
+        System.out.print("Enter text: ");
+        String msg = sc.nextLine();
+        byte[] d = msg.getBytes();
+        ds.send(new DatagramPacket(d, d.length, ip, 5000));
+
+        byte[] b = new byte[1024];
+        DatagramPacket p = new DatagramPacket(b, b.length);
+        ds.receive(p);
+        String reply = new String(p.getData(), 0, p.getLength());
+
+        System.out.println("Echo: " + reply);
+        System.out.println(reply.equals(msg) ? "MATCH" : "MISMATCH");
+        ds.disconnect();   // Java has no shutdown() for UDP; this is the equivalent
+        ds.close();
+    }
+
+    // ---------------- Exercise 2: Datagram server -> client ----------------
+    static void dgramServer() throws Exception {
+        DatagramSocket ds = new DatagramSocket(6000);
+        System.out.println("Waiting for client...");
+        byte[] b = new byte[1024];
+        DatagramPacket p = new DatagramPacket(b, b.length);
+        ds.receive(p);                       // client registers
+        Scanner sc = new Scanner(System.in);
+        while (true) {
+            System.out.print("Server> ");
+            String m = sc.nextLine();
+            byte[] d = m.getBytes();
+            ds.send(new DatagramPacket(d, d.length, p.getAddress(), p.getPort()));
+            if (m.equals("exit")) break;
+        }
+        ds.close();
+    }
+
+    static void dgramClient() throws Exception {
+        DatagramSocket ds = new DatagramSocket();
+        InetAddress ip = InetAddress.getByName(HOST);
+        byte[] d = "hello".getBytes();
+        ds.send(new DatagramPacket(d, d.length, ip, 6000));
+        while (true) {
+            byte[] b = new byte[1024];
+            DatagramPacket p = new DatagramPacket(b, b.length);
+            ds.receive(p);
+            String m = new String(p.getData(), 0, p.getLength());
+            if (m.equals("exit")) break;
+            System.out.println("From server: " + m);
+        }
+        ds.close();
+    }
+
+    // ---------------- Exercise 3: UDP Chat (type bye to end) ----------------
+    static void chatServer() throws Exception {
+        DatagramSocket ds = new DatagramSocket(7000);
+        System.out.println("Chat server waiting...");
+        Scanner sc = new Scanner(System.in);
+        byte[] b = new byte[1024];
+        while (true) {
+            DatagramPacket p = new DatagramPacket(b, b.length);
+            ds.receive(p);
+            String m = new String(p.getData(), 0, p.getLength());
+            System.out.println("Client: " + m);
+            if (m.equals("bye")) break;
+
+            System.out.print("Server: ");
+            m = sc.nextLine();
+            byte[] d = m.getBytes();
+            ds.send(new DatagramPacket(d, d.length, p.getAddress(), p.getPort()));
+            if (m.equals("bye")) break;
+        }
+        ds.close();
+    }
+
+    static void chatClient() throws Exception {
+        DatagramSocket ds = new DatagramSocket();
+        InetAddress ip = InetAddress.getByName(HOST);
+        Scanner sc = new Scanner(System.in);
+        while (true) {
+            System.out.print("Client: ");
+            String m = sc.nextLine();
+            byte[] d = m.getBytes();
+            ds.send(new DatagramPacket(d, d.length, ip, 7000));
+            if (m.equals("bye")) break;
+
+            byte[] b = new byte[1024];
+            DatagramPacket p = new DatagramPacket(b, b.length);
+            ds.receive(p);
+            m = new String(p.getData(), 0, p.getLength());
+            System.out.println("Server: " + m);
+            if (m.equals("bye")) break;
+        }
+        ds.close();
+    }
+
+    // ---------------- Exercise 4: Hello transfer (different computers) ----------------
+    static void helloServer() throws Exception {
+        DatagramSocket ds = new DatagramSocket(8000);
+        System.out.println("Hello server waiting on port 8000...");
+        byte[] b = new byte[1024];
+        DatagramPacket p = new DatagramPacket(b, b.length);
+        ds.receive(p);
+        System.out.println("Received: " + new String(p.getData(), 0, p.getLength()));
+        byte[] d = "hello client".getBytes();
+        ds.send(new DatagramPacket(d, d.length, p.getAddress(), p.getPort()));
+        ds.close();
+    }
+
+    static void helloClient() throws Exception {
+        Scanner sc = new Scanner(System.in);
+        System.out.print("Enter server IP: ");
+        InetAddress ip = InetAddress.getByName(sc.nextLine());
+        DatagramSocket ds = new DatagramSocket();
+        byte[] d = "hello server".getBytes();
+        ds.send(new DatagramPacket(d, d.length, ip, 8000));
+        byte[] b = new byte[1024];
+        DatagramPacket p = new DatagramPacket(b, b.length);
+        ds.receive(p);
+        System.out.println("Reply: " + new String(p.getData(), 0, p.getLength()));
+        ds.close();
+    }
+
+    // ---------------- Exercise 5: Framing ----------------
+    static void framing() {
+        Scanner sc = new Scanner(System.in);
+
+        // 1. Character count
+        System.out.print("Enter frames separated by space: ");
+        String[] frames = sc.nextLine().split(" ");
+        String out = "";
+        for (String f : frames)
+            out = out + (f.length() + 1) + f;
+        System.out.println("Character count : " + out);
+
+        // 2. Character stuffing
+        System.out.print("Enter data (type DLE for DLE): ");
+        String data = sc.nextLine();
+        out = "DLESTX" + data.replace("DLE", "DLEDLE") + "DLEETX";
+        System.out.println("Character stuff : " + out);
+
+        // 3. Bit stuffing
+        System.out.print("Enter bit string: ");
+        String bits = sc.nextLine();
+        out = "";
+        int ones = 0;
+        for (int i = 0; i < bits.length(); i++) {
+            char c = bits.charAt(i);
+            out = out + c;
+            if (c == '1') {
+                ones++;
+                if (ones == 5) {
+                    out = out + "0";      // stuffed bit
+                    ones = 0;
+                }
+            } else
+                ones = 0;
+        }
+        System.out.println("Bit stuff       : 01111110" + out + "01111110");
+    }
+
+    // ---------------- Exercise 6: TCP iterative reverse ----------------
+    static void tcpServer() throws Exception {
+        ServerSocket ss = new ServerSocket(9000);
+        System.out.println("TCP server listening on port 9000");
+        while (true) {                       // one client at a time
+            Socket s = ss.accept();
+            Scanner in = new Scanner(s.getInputStream());
+            java.io.PrintStream out = new java.io.PrintStream(s.getOutputStream(), true);
+            String str = in.nextLine();
+            System.out.println("Received: " + str);
+            out.println(new StringBuilder(str).reverse());
+            s.close();
+        }
+    }
+
+    static void tcpClient() throws Exception {
+        Socket s = new Socket(HOST, 9000);
+        Scanner in = new Scanner(s.getInputStream());
+        java.io.PrintStream out = new java.io.PrintStream(s.getOutputStream(), true);
+        Scanner sc = new Scanner(System.in);
+        System.out.print("Enter a string: ");
+        out.println(sc.nextLine());
+        System.out.println("Reversed: " + in.nextLine());
+        s.close();
+    }
+}
